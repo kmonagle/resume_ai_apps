@@ -1,0 +1,25 @@
+{
+  "name": "ai-apps",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "dev:rag": "npm run dev -w apps/rag-web",
+    "dev:rag-express": "npm run dev -w apps/rag-chat",
+    "build:rag": "npm run build -w apps/rag-web",
+    "typecheck": "tsc --noEmit -p . && tsc --noEmit -p apps/rag-web"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.6",
+    "@types/multer": "^2.2.0",
+    "@types/node": "^26.6.2",
+    "@types/pg": "^8.23.1",
+    "typescript": "^7.0.2"
+  }
+}

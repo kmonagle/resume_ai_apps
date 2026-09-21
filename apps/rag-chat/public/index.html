@@ -1,0 +1,175 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>RAG Chat</title>
+<style>
+  :root { --bg:#fafafa; --fg:#1a1a1a; --muted:#6b7280; --card:#fff; --line:#e5e7eb; --accent:#2563eb; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#111214; --fg:#e8e8ea; --muted:#9ca3af; --card:#1a1c1f; --line:#2c2f34; --accent:#60a5fa; }
+  }
+  * { box-sizing: border-box; }
+  body { margin:0; font:15px/1.5 system-ui,sans-serif; background:var(--bg); color:var(--fg); }
+  main { max-width:960px; margin:0 auto; padding:16px; display:grid; gap:16px; grid-template-columns:260px 1fr; }
+  @media (max-width:720px) { main { grid-template-columns:1fr; } }
+  h1 { font-size:18px; margin:0 0 12px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:8px; padding:12px; }
+  ul { list-style:none; margin:8px 0 0; padding:0; }
+  li { display:flex; justify-content:space-between; gap:8px; padding:6px 0; border-top:1px solid var(--line); font-size:13px; }
+  li small { color:var(--muted); display:block; }
+  button { font:inherit; cursor:pointer; border:1px solid var(--line); background:var(--card); color:var(--fg); border-radius:6px; padding:6px 12px; }
+  button.primary { background:var(--accent); border-color:var(--accent); color:#fff; }
+  button:disabled { opacity:.5; cursor:default; }
+  .x { border:0; background:none; color:var(--muted); padding:0 4px; }
+  #log { min-height:300px; display:flex; flex-direction:column; gap:12px; }
+  .q { font-weight:600; }
+  .a { white-space:pre-wrap; }
+  .tldr { background:color-mix(in srgb, var(--accent) 12%, transparent); border-left:3px solid var(--accent); padding:8px 10px; border-radius:4px; margin-bottom:8px; font-weight:500; }
+  details { font-size:13px; color:var(--muted); margin-top:6px; }
+  details p { margin:4px 0; white-space:pre-wrap; }
+  form { display:flex; gap:8px; margin-top:12px; }
+  input[type=text] { flex:1; font:inherit; padding:8px 10px; border:1px solid var(--line); border-radius:6px; background:var(--bg); color:var(--fg); }
+  .opt { display:block; margin-top:12px; font-size:13px; }
+  .hint { color:var(--muted); font-size:12px; }
+  li label { display:flex; gap:6px; align-items:flex-start; cursor:pointer; }
+  .thinking { display:flex; align-items:center; gap:8px; color:var(--muted); font-size:13px; }
+  .spin { width:14px; height:14px; border:2px solid var(--line); border-top-color:var(--accent); border-radius:50%; animation:spin .8s linear infinite; }
+  @keyframes spin { to { transform:rotate(360deg); } }
+  #status { font-size:13px; color:var(--muted); margin-top:8px; }
+</style>
+</head>
+<body>
+<main>
+  <aside class="card">
+    <h1>Documents</h1>
+    <input type="file" id="file" accept=".pdf,.txt,.md" hidden>
+    <button id="upload">Upload PDF / txt / md</button>
+    <div id="status"></div>
+    <ul id="docs"></ul>
+    <label class="opt"><input type="checkbox" id="balanced"> Balance across books</label>
+    <small class="hint">Checked books are searched; unchecked are excluded.</small>
+  </aside>
+  <section class="card">
+    <h1>Ask your documents</h1>
+    <div id="log"></div>
+    <form id="form">
+      <input type="text" id="q" placeholder="Ask a question…" autocomplete="off" required>
+      <button class="primary" id="ask">Ask</button>
+    </form>
+  </section>
+</main>
+<script>
+// Plain browser JavaScript, no framework. Flow: load the book list; on upload POST the file;
+// on ask POST the question and read the streamed answer as it arrives.
+const $ = (id) => document.getElementById(id);
+// Escapes text before it goes into innerHTML, so document content can never inject markup.
+const esc = (s) => s.replace(/[&<>"]/g, (c) => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;" }[c]));
+
+async function loadDocs() {
+  const docs = await (await fetch("/api/documents")).json();
+  $("docs").innerHTML = docs.map((d) =>
+    `<li><label><input type="checkbox" class="pick" value="${d.id}" checked><span>${esc(d.name)}<small>${d.chunks} chunks</small></span></label><button class="x" data-id="${d.id}" title="Delete">✕</button></li>`).join("");
+}
+
+$("docs").addEventListener("click", async (e) => {
+  const id = e.target.dataset?.id;
+  if (!id) return;
+  await fetch(`/api/documents/${id}`, { method: "DELETE" });
+  loadDocs();
+});
+
+// The button just opens the hidden file input; the upload starts when a file is chosen.
+$("upload").onclick = () => $("file").click();
+$("file").onchange = async () => {
+  const f = $("file").files[0];
+  if (!f) return;
+  $("status").textContent = `Embedding ${f.name}…`;
+  const body = new FormData();
+  body.append("file", f);
+  const res = await fetch("/api/upload", { method: "POST", body });
+  const json = await res.json();
+  $("status").textContent = res.ok ? `Added ${json.name} (${json.chunks} chunks)` : `Error: ${json.error}`;
+  $("file").value = "";
+  loadDocs();
+};
+
+// The chat flow: POST the question, then read the response body as it streams in. We use fetch
+// with a stream reader instead of EventSource because EventSource can't send a POST body.
+$("form").onsubmit = async (e) => {
+  e.preventDefault();
+  const question = $("q").value.trim();
+  if (!question) return;
+  const documentIds = [...document.querySelectorAll(".pick:checked")].map((c) => Number(c.value));
+  if (!documentIds.length) { $("status").textContent = "Select at least one book."; return; }
+  $("q").value = "";
+  $("ask").disabled = true;
+
+  const entry = document.createElement("div");
+  entry.innerHTML = `<div class="q">${esc(question)}</div><div class="thinking"><span class="spin"></span><span class="phase">Searching your books…</span></div><div class="tldr" hidden></div><div class="a"></div><details hidden><summary>Sources</summary></details>`;
+  $("log").append(entry);
+  const answer = entry.querySelector(".a");
+  const tldr = entry.querySelector(".tldr");
+  const thinking = entry.querySelector(".thinking");
+  const phase = entry.querySelector(".phase");
+  const stopThinking = () => thinking.remove();
+  $("ask").textContent = "Asking…";
+  entry.scrollIntoView({ block: "nearest" });
+  let raw = ""; // the full answer text so far; re-rendered on every new piece
+  // Claude is told to start with "TL;DR: ...", then a blank line. Once that first paragraph has
+  // fully arrived, we show it in the highlighted box and put the rest in the body.
+  const render = () => {
+    const i = raw.indexOf("\n\n");
+    if (/^TL;DR:/i.test(raw) && i >= 0) {
+      tldr.hidden = false;
+      tldr.textContent = raw.slice(0, i).replace(/^TL;DR:\s*/i, "TL;DR: ");
+      answer.textContent = raw.slice(i + 2);
+    } else {
+      answer.textContent = raw;
+    }
+  };
+  const details = entry.querySelector("details");
+
+  const res = await fetch("/api/chat", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      question,
+      balanced: $("balanced").checked,
+      documentIds: [...document.querySelectorAll(".pick:checked")].map((c) => Number(c.value)),
+    }),
+  });
+  // Network chunks can split an event in half, so buffer text and only parse complete events.
+  const reader = res.body.getReader();
+  const dec = new TextDecoder();
+  let buf = "";
+  while (true) {
+    const { value, done } = await reader.read();
+    if (done) break;
+    buf += dec.decode(value, { stream: true });
+    let i;
+    // A blank line ("\n\n") marks the end of one SSE event.
+    while ((i = buf.indexOf("\n\n")) >= 0) {
+      const frame = buf.slice(0, i); buf = buf.slice(i + 2);
+      const event = /^event: (.*)$/m.exec(frame)?.[1];
+      const data = JSON.parse(/^data: (.*)$/m.exec(frame)?.[1] ?? "null");
+      if (event === "delta") { thinking.isConnected && stopThinking(); raw += data; render(); }
+      else if (event === "error") { thinking.isConnected && stopThinking(); raw += `\n[error: ${data}]`; render(); }
+      else if (event === "sources" && data.length) {
+        phase.textContent = "Writing answer…";
+        details.hidden = false;
+        details.insertAdjacentHTML("beforeend", data.map((s) =>
+          `<p><b>[${s.n}] ${esc(s.document)}${s.page ? `, p. ${s.page}` : ""}</b> (${s.score.toFixed(2)})<br>${esc(s.content.slice(0, 300))}…</p>`).join(""));
+      }
+    }
+  }
+  thinking.isConnected && stopThinking();
+  $("ask").disabled = false;
+  $("ask").textContent = "Ask";
+  $("q").focus();
+};
+
+loadDocs();
+</script>
+</body>
+</html>

@@ -1,0 +1,12 @@
+{
+  "name": "@ai-apps/core",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": "./src/index.ts",
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.127.0",
+    "pg": "^8.23.0",
+    "pgvector": "^0.3.0"
+  }
+}

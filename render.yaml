@@ -1,0 +1,19 @@
+services:
+  - type: web
+    name: rag-chat
+    runtime: node
+    plan: starter
+    buildCommand: npm ci && npm run build -w apps/rag-web
+    startCommand: npm start -w apps/rag-web
+    healthCheckPath: /healthz
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      - key: DATABASE_URL # Neon connection string (include ?sslmode=require)
+        sync: false
+      - key: APP_PASSWORD # shared login for the UI; the app refuses to serve on Render without it
+        sync: false
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: VOYAGE_API_KEY
+        sync: false
