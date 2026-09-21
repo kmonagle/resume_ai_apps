@@ -3,7 +3,7 @@ services:
     name: rag-chat
     runtime: node
     plan: starter
-    buildCommand: npm ci && npm run build -w apps/rag-web
+    buildCommand: npm ci --include=dev && npm run build -w apps/rag-web
     startCommand: npm start -w apps/rag-web
     healthCheckPath: /healthz
     envVars:

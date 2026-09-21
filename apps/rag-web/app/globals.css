@@ -33,3 +33,15 @@ details { font-size:13px; color:var(--muted); margin-top:6px; }
 details p { margin:4px 0; white-space:pre-wrap; }
 form { display:flex; gap:8px; margin-top:12px; }
 input[type=text] { flex:1; font:inherit; padding:8px 10px; border:1px solid var(--line); border-radius:6px; background:var(--bg); color:var(--fg); }
+.nav { max-width:960px; margin:0 auto; padding:12px 16px 0; display:flex; gap:16px; font-size:14px; }
+.nav a { color:var(--accent); text-decoration:none; font-weight:500; }
+.nav a:hover { text-decoration:underline; }
+.progress { display:flex; flex-direction:column; gap:4px; margin-bottom:12px; }
+.progress details { background:var(--bg); border:1px solid var(--line); border-radius:6px; padding:6px 10px; color:var(--fg); margin-top:0; }
+.progress summary { cursor:pointer; }
+.progress p { white-space:pre-wrap; color:var(--muted); }
+ul.plain { list-style:none; padding:0; margin:6px 0; }
+ul.plain li { display:block; border:0; padding:2px 0; font-size:13px; color:var(--muted); }
+.badge { display:inline-block; width:18px; text-align:center; color:var(--accent); font-weight:700; }
+.agent.error .badge { color:#dc2626; }
+.agent small { color:var(--muted); }

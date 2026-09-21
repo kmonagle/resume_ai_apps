@@ -8,14 +8,16 @@ apps/rag-web/
     layout.tsx            wraps every page (<html>, <body>, global CSS)
     page.tsx              the page at "/"  (client component: chat UI)
     globals.css           styles, imported by layout.tsx
+    coach/page.tsx        the page at "/coach"  (multi-agent Habit Coach UI)
     healthz/route.ts      GET /healthz            (Render's health check)
     api/
       chat/route.ts       POST /api/chat          question -> retrieval -> streamed answer
       upload/route.ts     POST /api/upload        PDF/text -> chunks -> embeddings -> Postgres
+      coach/route.ts      POST /api/coach         runs the multi-agent flow (see lib/coach.ts)
       documents/route.ts  GET  /api/documents     list books
       documents/[id]/route.ts   DELETE /api/documents/7   ([id] = dynamic segment)
   components/             our React components (BookSidebar, ChatMessage)
-  lib/                    shared helpers (auth, types)
+  lib/                    shared helpers (auth, types, coach.ts = the agents and orchestration)
   proxy.ts                runs BEFORE requests reach pages: password prompt for the UI
   instrumentation.ts      runs ONCE at server startup: config check + database setup
   next.config.ts          project-wide Next settings

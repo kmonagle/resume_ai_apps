@@ -15,8 +15,9 @@ interface Props {
   docs: Doc[];
   selected: Set<number>;
   onToggle: (id: number) => void;
-  balanced: boolean;
-  onBalanced: (v: boolean) => void;
+  /** The balance toggle is only shown when these are provided (the coach always searches per book). */
+  balanced?: boolean;
+  onBalanced?: (v: boolean) => void;
   onChanged: () => void; // called after an upload or delete so the parent reloads the list
 }
 
@@ -74,9 +75,11 @@ export function BookSidebar({ docs, selected, onToggle, balanced, onBalanced, on
           </li>
         ))}
       </ul>
-      <label className="opt">
-        <input type="checkbox" checked={balanced} onChange={(e) => onBalanced(e.target.checked)} /> Balance across books
-      </label>
+      {onBalanced && (
+        <label className="opt">
+          <input type="checkbox" checked={!!balanced} onChange={(e) => onBalanced(e.target.checked)} /> Balance across books
+        </label>
+      )}
       <small className="hint">Checked books are searched; unchecked are excluded.</small>
     </aside>
   );

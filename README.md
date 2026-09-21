@@ -16,6 +16,7 @@ Ask:     question -> embed (Voyage) -> nearest chunks (pgvector) -> Claude answe
 | Embeddings | Turns text into vectors so similar meaning lands nearby (Voyage `voyage-3.5`) | `packages/core/src/embed.ts` |
 | Storage and search | Postgres with pgvector; cosine-distance nearest-neighbor query, optional per-book balancing | `packages/core/src/db.ts` |
 | Generation | Claude answers only from the retrieved chunks, cites `[n]`, leads with a TL;DR | `packages/core/src/claude.ts` |
+| Habit Coach | Multi-agent mode: planner, one search-tool agent per book (in parallel), then a synthesizer | `apps/rag-web/lib/coach.ts` |
 | Web app | Next.js UI with the Vercel AI SDK (`useChat`), password protection | `apps/rag-web` |
 
 ## Repo layout
@@ -26,6 +27,18 @@ apps/rag-web/      Next.js app (the one to use). See its README for a tour of th
 apps/rag-chat/     original Express + plain HTML version (kept for reference)
 render.yaml        Render Blueprint for deploying rag-web
 ```
+
+## Habit Coach (multi-agent)
+
+The `/coach` page runs three kinds of agents on a situation you describe (for example "I want to start
+running but keep quitting"):
+
+1. **Planner** (Claude Haiku) splits it into 3-4 sub-questions.
+2. **Book agents** (Claude Haiku, one per ticked book, in parallel) each get a `search_book` tool limited to
+   their own book, choose their own queries (max 3 searches), and write notes with page citations.
+3. **Synthesizer** (Claude Sonnet) merges the notes into a plan: where the authors agree, where they differ,
+   and concrete next steps. Progress streams live to the page. A run takes roughly 30-40 seconds and makes
+   about 8-10 model calls, so it costs noticeably more than a chat question.
 
 ## Prerequisites
 
@@ -76,4 +89,4 @@ The app refuses to serve on Render if `APP_PASSWORD` is unset. The default plan 
 ## Ideas for next steps
 
 Hybrid search plus a reranker, filtering junk chunks, a saved set of test questions for evaluation, and a
-multi-agent "habit coach" (planner, one agent per book, synthesizer).
+critic agent for the coach that checks the plan against the notes.

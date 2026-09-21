@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 // Importing a CSS file here applies it to the whole app.
+import Link from "next/link";
 import "./globals.css";
 
 // NEXT.JS: app/layout.tsx is the "root layout". It wraps EVERY page in the app, so it's where the
@@ -13,7 +14,14 @@ export const metadata = { title: "RAG Chat", description: "Ask questions across 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="en">
-      <body>{children}</body>
+      <body>
+        {/* next/link does client-side navigation: switching pages doesn't reload the whole app. */}
+        <nav className="nav">
+          <Link href="/">Chat</Link>
+          <Link href="/coach">Habit Coach</Link>
+        </nav>
+        {children}
+      </body>
     </html>
   );
 }
